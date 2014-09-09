@@ -5,7 +5,12 @@
 
 [signatures]
 keyring
-dirspec
 
 [faster-signatures]
 ed25519ll
+
+[:python_version=="2.6"]
+argparse
+
+[signatures:sys_platform!="win32"]
+pyxdg

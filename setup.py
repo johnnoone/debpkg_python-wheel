@@ -1,4 +1,4 @@
-import os.path, sys, codecs, re
+import os.path, codecs, re
 
 from setuptools import setup
 
@@ -6,20 +6,9 @@ here = os.path.abspath(os.path.dirname(__file__))
 README = codecs.open(os.path.join(here, 'README.txt'), encoding='utf8').read()
 CHANGES = codecs.open(os.path.join(here, 'CHANGES.txt'), encoding='utf8').read()
 
-with codecs.open(os.path.join(os.path.dirname(__file__), 'wheel', '__init__.py'), 
+with codecs.open(os.path.join(os.path.dirname(__file__), 'wheel', '__init__.py'),
                  encoding='utf8') as version_file:
     metadata = dict(re.findall(r"""__([a-z]+)__ = "([^"]+)""", version_file.read()))
-
-#
-# All these requirements are overridden by setup.cfg when wheel is built
-# as a wheel:
-#
-signature_reqs = ['keyring']
-if sys.platform != 'win32':
-    signature_reqs.append('dirspec')
-install_requires = []
-if sys.version_info[:2] < (2, 7):
-    install_requires.append('argparse')
 
 setup(name='wheel',
       version=metadata['version'],
@@ -35,22 +24,24 @@ setup(name='wheel',
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.2",
         "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
         ],
       author='Daniel Holth',
       author_email='dholth@fastmail.fm',
-      url='http://bitbucket.org/dholth/wheel/',
+      url='http://bitbucket.org/pypa/wheel/',
       keywords=['wheel', 'packaging'],
       license='MIT',
       packages=[
-          'wheel', 
-          'wheel.test', 
-          'wheel.tool', 
+          'wheel',
+          'wheel.test',
+          'wheel.tool',
           'wheel.signatures'
           ],
-      install_requires=install_requires,
       extras_require={
-          'signatures': signature_reqs,
-          'faster-signatures': ['ed25519ll'], 
+          ':python_version=="2.6"': ['argparse'],
+          'signatures': ['keyring'],
+          'signatures:sys_platform!="win32"': ['pyxdg'],
+          'faster-signatures': ['ed25519ll'],
           'tool': []
           },
       tests_require=['jsonschema', 'pytest', 'coverage', 'pytest-cov'],
@@ -58,8 +49,6 @@ setup(name='wheel',
       zip_safe=False,
       entry_points = """\
 [console_scripts]
-wininst2wheel = wheel.wininst2wheel:main
-egg2wheel = wheel.egg2wheel:main
 wheel = wheel.tool:main
 
 [distutils.commands]

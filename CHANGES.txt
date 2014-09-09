@@ -1,3 +1,31 @@
+0.24.0
+======
+- The python tag used for pure-python packages is now .pyN (major version
+  only). This change actually occurred in 0.23.0 when the --python-tag
+  option was added, but was not explicitly mentioned in the changelog then.
+- wininst2wheel and egg2wheel removed. Use "wheel convert [archive]"
+  instead.
+- Wheel now supports setuptools style conditional requirements via the
+  extras_require={} syntax. Separate 'extra' names from conditions using
+  the : character. Wheel's own setup.py does this. (The empty-string
+  extra is the same as install_requires.) These conditional requirements
+  should work the same whether the package is installed by wheel or
+  by setup.py.
+
+0.23.0
+======
+- Compatibiltiy tag flags added to the bdist_wheel command
+- sdist should include files necessary for tests
+- 'wheel convert' can now also convert unpacked eggs to wheel
+- Rename pydist.json to metadata.json to avoid stepping on the PEP
+- The --skip-scripts option has been removed, and not generating scripts is now
+  the default. The option was a temporary approach until installers could
+  generate scripts themselves. That is now the case with pip 1.5 and later.
+  Note that using pip 1.4 to install a wheel without scripts will leave the
+  installation without entry-point wrappers. The "wheel install-scripts"
+  command can be used to generate the scripts in such cases.
+- Thank you contributors
+
 0.22.0
 ======
 - Include entry_points.txt, scripts a.k.a. commands, in experimental
@@ -10,7 +38,7 @@
 - Pregenerated scripts are the default again.
 - "setup.py bdist_wheel --skip-scripts" turns them off.
 - setuptools is no longer a listed requirement for the 'wheel'
-  package. It is of course still required in order for bdist_wheel 
+  package. It is of course still required in order for bdist_wheel
   to work.
 - "python -m wheel" avoids importing pkg_resources until it's necessary.
 
@@ -117,8 +145,8 @@
 
 0.9.5
 =====
-- Wheel's own wheel file can be executed by Python, and can install itself: 
-  ``python wheel-0.9.5-py27-none-any/wheel install ...`` 
+- Wheel's own wheel file can be executed by Python, and can install itself:
+  ``python wheel-0.9.5-py27-none-any/wheel install ...``
 - Use argparse; basic ``wheel install`` command should run with only stdlib
   dependencies.
 - Allow requires_dist in setup.cfg's [metadata] section. In addition to

@@ -71,12 +71,15 @@ class bdist_wheel(Command):
                     ('group=', 'g',
                      "Group name used when creating a tar file"
                      " [default: current group]"),
-                    ('skip-scripts', None,
-                     "skip building the setuptools console_scripts",
-                     "(default: false)"),
+                    ('universal', None,
+                     "make a universal wheel"
+                     " (default: false)"),
+                    ('python-tag=', None,
+                     "Python implementation compatibility tag"
+                     " (default: py%s)" % get_impl_ver()[0]),
                     ]
 
-    boolean_options = ['keep-temp', 'skip-build', 'relative']
+    boolean_options = ['keep-temp', 'skip-build', 'relative', 'universal']
 
     def initialize_options(self):
         self.bdist_dir = None
@@ -92,7 +95,8 @@ class bdist_wheel(Command):
         self.relative = False
         self.owner = None
         self.group = None
-        self.skip_scripts = False
+        self.universal = False
+        self.python_tag = 'py' + get_impl_ver()[0]
 
     def finalize_options(self):
         if self.bdist_dir is None:
@@ -108,6 +112,14 @@ class bdist_wheel(Command):
 
         self.root_is_purelib = self.distribution.is_pure()
 
+        # Support legacy [wheel] section for setting universal
+        wheel = self.distribution.get_option_dict('wheel')
+        if 'universal' in wheel:
+            # please don't define this in your global configs
+            val = wheel['universal'][1].strip()
+            if val.lower() in ('1', 'true', 'yes'):
+                self.universal = True
+
     @property
     def wheel_dist_name(self):
         """Return distribution full name with - replaced with _"""
@@ -117,31 +129,24 @@ class bdist_wheel(Command):
     def get_tag(self):
         supported_tags = pep425tags.get_supported()
 
-        purity = self.distribution.is_pure()
-        impl_ver = get_impl_ver()
-        abi_tag = 'none'
-        plat_name = 'any'
-        impl_name = 'py'
-        if purity:
-            wheel = self.distribution.get_option_dict('wheel')
-            if 'universal' in wheel:
-                # please don't define this in your global configs
-                val = wheel['universal'][1].strip()
-                if val.lower() in ('1', 'true', 'yes'):
-                    impl_name = 'py2.py3'
-                    impl_ver = ''
-            tag = (impl_name + impl_ver, abi_tag, plat_name)
+        if self.distribution.is_pure():
+            if self.universal:
+                impl = 'py2.py3'
+            else:
+                impl = self.python_tag
+            tag = (impl, 'none', 'any')
         else:
             plat_name = self.plat_name
             if plat_name is None:
                 plat_name = get_platform()
             plat_name = plat_name.replace('-', '_').replace('.', '_')
             impl_name = get_abbr_impl()
+            impl_ver = get_impl_ver()
             # PEP 3149 -- no SOABI in Py 2
             # For PyPy?
             # "pp%s%s" % (sys.pypy_version_info.major,
             # sys.pypy_version_info.minor)
-            abi_tag = sysconfig.get_config_vars().get('SOABI', abi_tag)
+            abi_tag = sysconfig.get_config_vars().get('SOABI', 'none')
             if abi_tag.startswith('cpython-'):
                 abi_tag = 'cp' + abi_tag.rsplit('-', 1)[-1]
 
@@ -176,10 +181,11 @@ class bdist_wheel(Command):
         install.skip_build = self.skip_build
         install.warn_dir = False
 
-        if self.skip_scripts:
-            # A wheel without setuptools scripts is more cross-platform. 
-            install_scripts = self.reinitialize_command('install_scripts')
-            install_scripts.no_ep = True
+        # A wheel without setuptools scripts is more cross-platform.
+        # Use the (undocumented) `no_ep` option to setuptools'
+        # install_scripts command to avoid creating entry point scripts.
+        install_scripts = self.reinitialize_command('install_scripts')
+        install_scripts.no_ep = True
 
         # Use a custom scheme for the archive, because we have to decide
         # at installation time which scheme to use.
@@ -281,19 +287,19 @@ class bdist_wheel(Command):
         return metadata['license_file'][1]
 
     def setupcfg_requirements(self):
-        """Generate requirements from setup.cfg as 
+        """Generate requirements from setup.cfg as
         ('Requires-Dist', 'requirement; qualifier') tuples. From a metadata
         section in setup.cfg:
-        
+
         [metadata]
         provides-extra = extra1
             extra2
         requires-dist = requirement; qualifier
             another; qualifier2
             unqualified
-            
+
         Yields
-        
+
         ('Provides-Extra', 'extra1'),
         ('Provides-Extra', 'extra2'),
         ('Requires-Dist', 'requirement; qualifier'),
@@ -381,8 +387,8 @@ class bdist_wheel(Command):
         metadata_path = os.path.join(distinfo_path, 'METADATA')
         self.add_requirements(metadata_path)
 
-        # XXX not a final specification
-        metadata_json_path = os.path.join(distinfo_path, 'pydist.json')
+        # XXX intentionally a different path than the PEP.
+        metadata_json_path = os.path.join(distinfo_path, 'metadata.json')
         pymeta = pkginfo_to_dict(metadata_path,
                                  distribution=self.distribution)
 
@@ -393,16 +399,14 @@ class bdist_wheel(Command):
                                             description_filename)
             with open(description_path, "wb") as description_file:
                 description_file.write(description_text.encode('utf-8'))
-            pymeta['document_names'] = pymeta.get('document_names', {})
-            pymeta['document_names']['description'] = description_filename
+            pymeta['extensions']['python.details']['document_names']['description'] = description_filename
 
         # XXX heuristically copy any LICENSE/LICENSE.txt?
         license = self.license_file()
         if license:
             license_filename = 'LICENSE.txt'
             shutil.copy(license, os.path.join(self.distinfo_dir, license_filename))
-            pymeta['document_names'] = pymeta.get('document_names', {})
-            pymeta['document_names']['license'] = license_filename
+            pymeta['extensions']['python.details']['document_names']['license'] = license_filename
 
         with open(metadata_json_path, "w") as metadata_json:
             json.dump(pymeta, metadata_json)

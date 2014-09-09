@@ -94,10 +94,21 @@ def test_unpack():
     This also verifies the integrity of our testing wheel files.
     """
     for dist in test_distributions:
-        distdir = pkg_resources.resource_filename('wheel.test', 
+        distdir = pkg_resources.resource_filename('wheel.test',
                                                   os.path.join(dist, 'dist'))
         for wheelfile in (w for w in os.listdir(distdir) if w.endswith('.whl')):
             wheel.tool.unpack(os.path.join(distdir, wheelfile), distdir)
+
+def test_no_scripts():
+    """Make sure entry point scripts are not generated."""
+    dist = "complex-dist"
+    basedir = pkg_resources.resource_filename('wheel.test', dist)
+    for (dirname, subdirs, filenames) in os.walk(basedir):
+        for filename in filenames:
+            if filename.endswith('.whl'):
+                whl = ZipFile(os.path.join(dirname, filename))
+                for entry in whl.infolist():
+                    assert not '.data/scripts/' in entry.filename
 
 def test_pydist():
     """Make sure pydist.json exists and validates against our schema."""
@@ -118,11 +129,11 @@ def test_pydist():
                 if filename.endswith('.whl'):
                     whl = ZipFile(os.path.join(dirname, filename))
                     for entry in whl.infolist():
-                        if entry.filename.endswith('/pydist.json'):
+                        if entry.filename.endswith('/metadata.json'):
                             pymeta = json.loads(whl.read(entry).decode('utf-8'))
                             jsonschema.validate(pymeta, pymeta_schema)
                             valid += 1
-    assert valid > 0, "No pydist.json found"
+    assert valid > 0, "No metadata.json found"
 
 def test_util():
     """Test functions in util.py."""
